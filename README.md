@@ -24,6 +24,7 @@
 - [x] Implement the `load()` function to load an `.ls8` file given the filename
       passed in as an argument
 - [x] Implement a Multiply instruction (run `mult8.ls8`)
+- [x] Beautify your `run()` loop
 
 ### Day 3: Stack
 

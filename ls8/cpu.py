@@ -2,6 +2,10 @@
 
 import sys
 
+LDI = 0b10000010
+PRN = 0b01000111
+HLT = 0b00000001
+MUL = 0b10100010
 
 class CPU:
     """Main CPU class."""
@@ -10,7 +14,34 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.reg = [0] * 8
+        self.dispatch_table = {}
+        self.dispatch_table[LDI] = self.handle_LDI
+        self.dispatch_table[PRN] = self.handle_PRN
+        self.dispatch_table[MUL] = self.handle_MUL
+        self.dispatch_table[HLT] = self.handle_HLT
+        self.running = True
         self.pc = 0
+
+    def handle_LDI(self):
+        operand_a = self.ram_read(self.pc + 1)
+        operand_b = self.ram_read(self.pc + 2)
+        self.reg[operand_a] = operand_b
+        self.pc += 3
+
+    def handle_PRN(self):
+        operand_a = self.ram_read(self.pc + 1)
+        print(self.reg[operand_a])
+        self.pc += 2
+
+    def handle_MUL(self):
+        operand_a = self.ram_read(self.pc + 1)
+        operand_b = self.ram_read(self.pc + 2)
+        self.alu('MUL', operand_a, operand_b)
+        self.pc += 3
+
+    def handle_HLT(self):
+        self.running = False
+
 
     def ram_read(self, address):
         return self.ram[address]
@@ -75,28 +106,11 @@ class CPU:
         # register. 01000111
         # * `HLT`: halt the CPU and exit the emulator. 00000001
 
-        LDI = 0b10000010
-        PRN = 0b01000111
-        HLT = 0b00000001
-        MUL = 0b10100010
 
-        running = True
+        
 
-        while running:
+        while self.running:
 
             IR = self.ram[self.pc]
 
-            operand_a = self.ram_read(self.pc + 1)
-            operand_b = self.ram_read(self.pc + 2)
-
-            if IR == LDI:
-                self.reg[operand_a] = operand_b
-                self.pc += 3
-            elif IR == PRN:
-                print(self.reg[operand_a])
-                self.pc += 2
-            elif IR == MUL:
-                self.alu('MUL', operand_a, operand_b)
-                self.pc += 3
-            elif IR == HLT:
-                running = False
+            self.dispatch_table[IR]()
