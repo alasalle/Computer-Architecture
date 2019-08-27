@@ -16,7 +16,8 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.reg = [0] * 8
-        self.sp = 0xF4
+        self.reg[7] = 0xF4
+        self.sp = self.reg[7]
         self.dispatch_table = {}
         self.dispatch_table[LDI] = self.handle_LDI
         self.dispatch_table[PRN] = self.handle_PRN
