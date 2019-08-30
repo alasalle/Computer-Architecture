@@ -10,8 +10,18 @@ ADD = 0b10100000
 POP = 0b01000110
 PUSH = 0b01000101
 CALL = 0b01010000
-RET  = 0b00010001
-JMP  = 0b01010100
+RET = 0b00010001
+CMP = 0b10100111
+JMP = 0b01010100
+JEQ = 0b01010101
+JNE = 0b01010110
+AND = 0b10101000
+OR = 0b10101010
+XOR = 0b10101011
+NOT = 0b01101001
+SHL = 0b10101100
+SHR = 0b10101101
+MOD = 0b10100100
 
 class CPU:
     """Main CPU class."""
@@ -23,22 +33,43 @@ class CPU:
         self.reg[7] = 0xF4
         self.sp = self.reg[7]
         self.program_length = 0
-        self.dispatch_table = {}
-        self.dispatch_table[LDI] = self.handle_LDI
-        self.dispatch_table[PRN] = self.handle_PRN
-        self.dispatch_table[MUL] = self.handle_MUL
-        self.dispatch_table[ADD] = self.handle_ADD
-        self.dispatch_table[HLT] = self.handle_HLT
-        self.dispatch_table[POP] = self.handle_POP
-        self.dispatch_table[PUSH] = self.handle_PUSH
-        self.dispatch_table[CALL] = self.handle_CALL
-        self.dispatch_table[RET] = self.handle_RET
-        self.dispatch_table[JMP] = self.handle_JMP
-        self.alu_dispatch_table = {}
-        self.alu_dispatch_table['ADD'] = self.alu_ADD
-        self.alu_dispatch_table['MUL'] = self.alu_MUL
+        self.dispatch_table = {
+            LDI: self.handle_LDI,
+            PRN: self.handle_PRN,
+            MUL: self.handle_MUL,
+            ADD: self.handle_ADD,
+            HLT: self.handle_HLT,
+            POP: self.handle_POP,
+            PUSH: self.handle_PUSH,
+            CALL: self.handle_CALL,
+            RET: self.handle_RET,
+            JMP: self.handle_JMP,
+            CMP: self.handle_CMP,
+            JEQ: self.handle_JEQ,
+            JNE: self.handle_JNE,
+            AND: self.handle_AND,
+            OR: self.handle_OR,
+            XOR: self.handle_XOR,
+            NOT: self.handle_NOT,
+            SHL: self.handle_SHL,
+            SHR: self.handle_SHR,
+            MOD: self.handle_MOD
+        }
+        self.alu_dispatch_table = {
+            'ADD': self.alu_ADD,
+            'MUL': self.alu_MUL,
+            'CMP': self.alu_CMP,
+            'AND': self.alu_AND,
+            'OR': self.alu_OR,
+            'XOR': self.alu_XOR,
+            'NOT': self.alu_NOT,
+            'SHL': self.alu_SHL,
+            'SHR': self.alu_SHR,
+            'MOD': self.alu_MOD
+        }
         self.running = True
         self.pc = 0
+        self.fl = 0
 
     def handle_LDI(self, OP_A, OP_B, OP):
         self.reg[OP_A] = OP_B
@@ -55,6 +86,10 @@ class CPU:
 
     def handle_MUL(self, OP_A, OP_B, OP):
         self.alu('MUL', OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_CMP(self, OP_A, OP_B, OP):
+        self.alu('CMP', OP_A, OP_B)
         self.pc += ((0b11000000 & OP) >> 6) + 1
 
 
@@ -103,8 +138,51 @@ class CPU:
         self.pc = self.ram[self.reg[7]]
 
     def handle_JMP(self, OP_A, OP_B, OP):
-        print({'a': OP_A, 'reg': self.reg, 'ram': self.ram})
         self.pc = self.reg[OP_A]
+
+    def handle_CMP(self, OP_A, OP_B, OP):
+        self.alu("CMP", OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_JEQ(self, OP_A, OP_B, OP):
+        if self.fl == 0b00000001:
+            self.pc = self.reg[OP_A]
+        else:
+            self.pc += ((0b11000000 & OP) >> 6) + 1
+    
+    def handle_JNE(self, OP_A, OP_B, OP):
+        if self.fl != 0b00000001:
+            self.pc = self.reg[OP_A]
+        else:
+            self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_AND(self, OP_A, OP_B, OP):
+        self.alu("AND", OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_OR(self, OP_A, OP_B, OP):
+        self.alu("OR", OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_XOR(self, OP_A, OP_B, OP):
+        self.alu("XOR", OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_NOT(self, OP_A, OP_B, OP):
+        self.alu("NOT", OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_SHL(self, OP_A, OP_B, OP):
+        self.alu("SHL", OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_SHR(self, OP_A, OP_B, OP):
+        self.alu("SHR", OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_MOD(self, OP_A, OP_B, OP):
+        self.alu("MOD", OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
 
     def alu_ADD(self, reg_a, reg_b):
         self.reg[reg_a] = (self.reg[reg_a] + self.reg[reg_b]) & 0xFF
@@ -112,6 +190,41 @@ class CPU:
     def alu_MUL(self, reg_a, reg_b):
         self.reg[reg_a] = (self.reg[reg_a] * self.reg[reg_b]) & 0xFF
 
+    def alu_CMP(self, reg_a, reg_b):
+        
+        if self.reg[reg_a] == self.reg[reg_b]:
+            self.fl = 0b00000001
+
+        elif self.reg[reg_a] < self.reg[reg_b]:
+            self.fl = 0b00000100
+
+        elif self.reg[reg_a] > self.reg[reg_b]:
+            self.fl = 0b00000010
+
+    def alu_AND(self, reg_a, reg_b):
+        self.reg[reg_a] = (self.reg[reg_a] & self.reg[reg_b]) & 0xFF
+
+    def alu_OR(self, reg_a, reg_b):
+        self.reg[reg_a] = (self.reg[reg_a] | self.reg[reg_b]) & 0xFF
+
+    def alu_XOR(self, reg_a, reg_b):
+        self.reg[reg_a] = (self.reg[reg_a] ^ self.reg[reg_b]) & 0xFF 
+
+    def alu_NOT(self, reg_a, reg_b):
+        self.reg[reg_a] = (~ self.reg[reg_a]) & 0xFF
+
+    def alu_SHL(self, reg_a, reg_b):
+         self.reg[reg_a] = (self.reg[reg_a] << self.reg[reg_b]) & 0xFF
+
+    def alu_SHR(self, reg_a, reg_b):
+        self.reg[reg_a] = (self.reg[reg_a] >> self.reg[reg_b]) & 0xFF
+
+    def alu_MOD(self, reg_a, reg_b):
+        if self.reg[reg_b] == 0:
+                print("Cannot Divide by 0")
+                sys.exit(1)
+        else:
+            self.reg[reg_a] = (self.reg[reg_a] % self.reg[reg_b]) & 0xFF
 
     def ram_read(self, MAR):
         return self.ram[MAR]
