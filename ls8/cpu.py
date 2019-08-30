@@ -65,9 +65,9 @@ class CPU:
 
         self.reg[OP_A] = self.ram[self.reg[7]]
 
-        if (self.reg[7] + 1) % 0xF5 > self.program_length -1:
+        if (self.reg[7] + 1) % 0xF4 > self.program_length -1:
 
-            self.reg[7] = (self.reg[7] + 1) % 0xF5
+            self.reg[7] = (self.reg[7] + 1) % 0xF4
 
         else:
 
@@ -79,9 +79,9 @@ class CPU:
 
     def handle_PUSH(self, OP_A, OP_B, OP):
 
-        if (self.reg[7] - 1) % 0xF5 > self.program_length - 1:
+        if (self.reg[7] - 1) % 0xF4 > self.program_length - 1:
 
-            self.reg[7] = (self.reg[7] - 1) % 0xF5 
+            self.reg[7] = (self.reg[7] - 1) % 0xF4 
 
         else:
 
