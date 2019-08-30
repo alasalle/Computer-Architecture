@@ -6,8 +6,12 @@ LDI = 0b10000010
 PRN = 0b01000111
 HLT = 0b00000001
 MUL = 0b10100010
+ADD = 0b10100000
 POP = 0b01000110
 PUSH = 0b01000101
+CALL = 0b01010000
+RET  = 0b00010001
+JMP  = 0b01010100
 
 class CPU:
     """Main CPU class."""
@@ -18,56 +22,89 @@ class CPU:
         self.reg = [0] * 8
         self.reg[7] = 0xF4
         self.sp = self.reg[7]
+        self.program_length = 0
         self.dispatch_table = {}
         self.dispatch_table[LDI] = self.handle_LDI
         self.dispatch_table[PRN] = self.handle_PRN
         self.dispatch_table[MUL] = self.handle_MUL
+        self.dispatch_table[ADD] = self.handle_ADD
         self.dispatch_table[HLT] = self.handle_HLT
         self.dispatch_table[POP] = self.handle_POP
         self.dispatch_table[PUSH] = self.handle_PUSH
+        self.dispatch_table[CALL] = self.handle_CALL
+        self.dispatch_table[RET] = self.handle_RET
+        self.dispatch_table[JMP] = self.handle_JMP
         self.alu_dispatch_table = {}
         self.alu_dispatch_table['ADD'] = self.alu_ADD
         self.alu_dispatch_table['MUL'] = self.alu_MUL
         self.running = True
         self.pc = 0
 
-    def handle_LDI(self):
-        operand_a = self.ram_read(self.pc + 1)
-        operand_b = self.ram_read(self.pc + 2)
-        self.reg[operand_a] = operand_b
-        self.pc += 3
+    def handle_LDI(self, OP_A, OP_B, OP):
+        self.reg[OP_A] = OP_B
+        self.pc += ((0b11000000 & OP) >> 6) + 1
 
-    def handle_PRN(self):
-        operand_a = self.ram_read(self.pc + 1)
-        print(self.reg[operand_a])
-        self.pc += 2
+    def handle_PRN(self, OP_A, OP_B, OP):
+        print(self.reg[OP_A])
+        self.pc += ((0b11000000 & OP) >> 6) + 1
 
-    def handle_MUL(self):
-        operand_a = self.ram_read(self.pc + 1)
-        operand_b = self.ram_read(self.pc + 2)
-        self.alu('MUL', operand_a, operand_b)
-        self.pc += 3
 
-    def handle_HLT(self):
+    def handle_ADD(self, OP_A, OP_B, OP):
+        self.alu('ADD', OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+    def handle_MUL(self, OP_A, OP_B, OP):
+        self.alu('MUL', OP_A, OP_B)
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+
+    def handle_HLT(self, OP_A, OP_B, OP):
         self.running = False
 
-    def handle_POP(self):
-        operand_a = self.ram_read(self.pc + 1)
+    def handle_POP(self, OP_A, OP_B, OP):
 
-        if self.sp == 0xF4:
-            print("Stack is empty")
-            sys.exit(1)
+        self.reg[OP_A] = self.ram[self.reg[7]]
+
+        if (self.reg[7] + 1) % 0xF5 > self.program_length -1:
+
+            self.reg[7] = (self.reg[7] + 1) % 0xF5
+
         else:
-            self.sp += 1
-            self.reg[operand_a] = self.ram[self.sp]
-            self.pc += 2
 
-    def handle_PUSH(self):
-        operand_a = self.ram_read(self.pc + 1)
+            self.reg[7] = self.program_length
+        
+        self.pc += ((0b11000000 & OP) >> 6) + 1
 
-        self.ram[self.sp] = self.reg[operand_a]
-        self.sp -= 1
-        self.pc += 2
+
+
+    def handle_PUSH(self, OP_A, OP_B, OP):
+
+        if (self.reg[7] - 1) % 0xF5 > self.program_length - 1:
+
+            self.reg[7] = (self.reg[7] - 1) % 0xF5 
+
+        else:
+
+            self.reg[7] = self.program_length
+
+        self.ram[self.reg[7]] = self.reg[OP_A]
+        self.pc += ((0b11000000 & OP) >> 6) + 1
+
+
+    def handle_CALL(self, OP_A, OP_B, OP):
+
+        self.ram[self.reg[7]] = self.pc + 2
+        self.reg[7] -= 1
+        self.pc = self.reg[OP_A]
+
+    def handle_RET(self, OP_A, OP_B, OP):
+        
+        self.reg[7] += 1
+        self.pc = self.ram[self.reg[7]]
+
+    def handle_JMP(self, OP_A, OP_B, OP):
+        print({'a': OP_A, 'reg': self.reg, 'ram': self.ram})
+        self.pc = self.reg[OP_A]
 
     def alu_ADD(self, reg_a, reg_b):
         self.reg[reg_a] = (self.reg[reg_a] + self.reg[reg_b]) & 0xFF
@@ -76,11 +113,11 @@ class CPU:
         self.reg[reg_a] = (self.reg[reg_a] * self.reg[reg_b]) & 0xFF
 
 
-    def ram_read(self, address):
-        return self.ram[address]
+    def ram_read(self, MAR):
+        return self.ram[MAR]
 
-    def ram_write(self, value, address):
-        self.ram[address] = value
+    def ram_write(self, MAR, MDR):
+        self.ram[MAR] = MDR
 
     def load(self):
         """Load a program into memory."""
@@ -101,6 +138,8 @@ class CPU:
             for instruction in program:
                 self.ram[address] = instruction
                 address += 1
+        
+            self.program_length = address
 
         except:
             print("Oops!",sys.exc_info()[0],"occured in load function.")
@@ -144,13 +183,17 @@ class CPU:
 
         while self.running:
 
-            try:
+            # try:
 
                 IR = self.ram[self.pc]
 
-                self.dispatch_table[IR]()
-            
-            except:
+                OP_A = self.ram_read(self.pc + 1)
+                OP_B = self.ram_read(self.pc + 2)
 
-                print("Oops!",sys.exc_info()[0],"occured in run function.")
-                sys.exit(1)
+
+                self.dispatch_table[IR](OP_A, OP_B, IR)
+            
+            # except:
+
+            #     print("Oops!",sys.exc_info()[0],"occured in run function.")
+            #     sys.exit(1)
